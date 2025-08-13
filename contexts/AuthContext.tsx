@@ -67,10 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const profileRef = doc(db, 'profile', user.uid);
-        // Unsubscribe previous listener if any
-        if (profileUnsubscribe) profileUnsubscribe();
-        profileUnsubscribe = onSnapshot(profileRef, (doc) => {
+        const profileRef = doc(db, 'users', user.uid);
+        const profileUnsubscribe = onSnapshot(profileRef, (doc) => {
           if (doc.exists()) {
             const data = doc.data();
             setProfile({
@@ -187,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     if (!user) return;
     try {
-      const profileRef = doc(db, 'profile', user.uid);
+      const profileRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(profileRef);
       if (docSnap.exists()) {
         const data = docSnap.data();

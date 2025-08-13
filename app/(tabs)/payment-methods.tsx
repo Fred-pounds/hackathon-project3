@@ -60,7 +60,7 @@ export default function PaymentMethods() {
     if (!user) return;
 
     const unsubscribe = onSnapshot(
-      collection(db, 'users', user.uid, 'paymentMethods'),
+      collection(db, 'profile', user.uid, 'paymentMethods'),
       (snapshot) => {
         const methods: PaymentMethod[] = [];
         snapshot.forEach((doc) => {
@@ -118,7 +118,7 @@ export default function PaymentMethods() {
         }),
       };
 
-      const methodRef = doc(collection(db, 'users', user.uid, 'paymentMethods'));
+      const methodRef = doc(collection(db, 'profile', user.uid, 'paymentMethods'));
       await setDoc(methodRef, newMethod);
 
       Alert.alert('Success', 'Payment method added successfully!');
@@ -158,7 +158,7 @@ export default function PaymentMethods() {
         }),
       };
 
-      await updateDoc(doc(db, 'users', user.uid, 'paymentMethods', editingMethod.id), updatedMethod);
+      await updateDoc(doc(db, 'profile', user.uid, 'paymentMethods', editingMethod.id), updatedMethod);
 
       Alert.alert('Success', 'Payment method updated successfully!');
       setShowEditModal(false);

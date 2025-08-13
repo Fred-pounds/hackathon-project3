@@ -38,7 +38,7 @@ export default function Wallet() {
     setRefreshing(true);
     try {
       await fetchRecentTransactions();
-      // await refreshProfile();
+      await refreshProfile();
     } catch (error) {
       console.error('Error refreshing:', error);
     } finally {

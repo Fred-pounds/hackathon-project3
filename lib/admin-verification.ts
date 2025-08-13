@@ -93,7 +93,7 @@ export async function rejectVerification(userId: string, reason?: string): Promi
 // Get verification statistics
 export async function getVerificationStats() {
   try {
-    const profilesRef = collection(db, 'profiles');
+    const profilesRef = collection(db, 'profile');
     
     const [pending, verified, rejected, total] = await Promise.all([
       getDocs(query(profilesRef, where('verificationStatus', '==', 'submitted'))),

@@ -31,7 +31,7 @@ export class PINManager {
       await AsyncStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pinData));
 
       // Store in Firebase
-      const userDocRef = doc(db, 'users', userId);
+      const userDocRef = doc(db, 'profiles', userId);
       await setDoc(userDocRef, { pin: pinData }, { merge: true });
 
       return { success: true };

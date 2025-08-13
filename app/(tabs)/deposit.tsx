@@ -4,9 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useAuth } from '@/contexts/AuthContext';
 import { ArrowLeft, ExternalLink, RefreshCw, DollarSign, CheckCircle, AlertCircle } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import PINVerificationModal from '@/components/PINVerificationModal';
+import * as WebBrowser from 'expo-web-browser';
 
 export default function Deposit() {
   const { user, profile } = useAuth();
@@ -79,6 +80,7 @@ export default function Deposit() {
 
     // Show PIN verification modal instead of proceeding directly
     setShowPINModal(true);
+
   };
 
   const handlePINVerificationSuccess = () => {
@@ -232,7 +234,7 @@ export default function Deposit() {
     const { url, error } = getDepositUrl(amount);
     if (url) {
       try {
-        await Linking.openURL(url);
+        let result = await WebBrowser.openBrowserAsync(url)
       } catch (error) {
         Alert.alert('Error', 'Could not open the deposit page in your browser.');
       }
@@ -255,6 +257,20 @@ export default function Deposit() {
     setTransactionStatus(null);
     setAmount('');
   };
+
+  const openDepositePage = async () => {  
+    const { url, error } = getDepositUrl(amount);
+    if (url) {
+      Linking.openURL(url).catch(err => { 
+        console.error('Failed to open deposit page:', err);
+        Alert.alert('Error', 'Failed to open the deposit page. Please try again later.');
+      })
+      setError(null);
+     
+    } else {
+      Alert.alert('Error', error || 'Failed to open deposit page');
+    }
+  }
 
   // Show success state
   if (transactionStatus === 'success') {
@@ -312,14 +328,7 @@ export default function Deposit() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.amountContainer}>
-            <View style={styles.amountIcon}>
-              <DollarSign size={48} color="#22C55E" />
-            </View>
-            
-            <Text style={styles.amountTitle}>Enter Deposit Amount</Text>
-            <Text style={styles.amountSubtitle}>
-              How much would you like to deposit into your wallet?
-            </Text>
+          
 
             <View style={styles.balanceInfo}>
               <Text style={styles.balanceLabel}>Current Balance:</Text>
@@ -363,7 +372,7 @@ export default function Deposit() {
 
             <TouchableOpacity
               style={[styles.proceedButton, !amount || parseFloat(amount) <= 0 ? styles.proceedButtonDisabled : null]}
-              onPress={handleProceedToDeposit}
+              onPress={()=> openDepositePage()}
               disabled={!amount || parseFloat(amount) <= 0}
             >
               <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
