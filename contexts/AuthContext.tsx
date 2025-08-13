@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut, signInWithEmailAndPassword, sendEmailVerification, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { PINManager } from '@/lib/pin-manager';
 import { Profile } from '@/types/env';
@@ -15,7 +16,8 @@ interface AuthContextType {
   canSendMoney: any,
   canReceiveMoney: any,
   canDeposit :any,
-  refreshProfile:any,
+  refreshProfile: any;
+  updateProfile: (profileData: Partial<Profile>) => Promise<{ success?: boolean; error?: string }>;
   signOut: () => Promise<void>;
   checkPINStatus: () => Promise<void>;
   setPINVerified: (verified: boolean) => void;
@@ -50,6 +52,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    setLoading(true);
+    let profileUnsubscribe: (() => void) | null = null;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
@@ -63,8 +67,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const profileRef = doc(db, 'users', user.uid);
-        const profileUnsubscribe = onSnapshot(profileRef, (doc) => {
+        const profileRef = doc(db, 'profile', user.uid);
+        // Unsubscribe previous listener if any
+        if (profileUnsubscribe) profileUnsubscribe();
+        profileUnsubscribe = onSnapshot(profileRef, (doc) => {
           if (doc.exists()) {
             const data = doc.data();
             setProfile({
@@ -91,17 +97,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             setProfile(defaultProfile);
           }
+          setLoading(false); // Only set loading false after profile is fetched
         });
-        return () => profileUnsubscribe();
       } else {
         setProfile(null);
         setPINVerified(false);
         setHasPIN(false);
+        setLoading(false);
+        if (profileUnsubscribe) profileUnsubscribe();
       }
-    
     });
-    setLoading(false);
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (profileUnsubscribe) profileUnsubscribe();
+    };
   }, []);
 
 
@@ -109,13 +118,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const currentUser = userCredential.user;
-      
+
       if (currentUser && !currentUser.emailVerified) {
         await sendEmailVerification(currentUser);
         return { error: 'Please verify your email. A verification link has been sent.' };
       }
-  
 
+      // Fetch profile from Firestore immediately after login
+      setLoading(true);
+      const profileRef = doc(db, 'profile', currentUser.uid);
+      console.log(profileRef);
+      const docSnap = await getDoc(profileRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setProfile({
+          fullName: data.fullName || '',
+          email: data.email || currentUser.email || '',
+          phoneNumber: data.phoneNumber || '',
+          walletBalance: data.walletBalance || 0,
+          isVerified: data.isVerified || false,
+          verificationStatus: data.verificationStatus || 'pending',
+          profileImageUrl: data.profileImageUrl || undefined,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        });
+      } else {
+        const defaultProfile: Profile = {
+          fullName: currentUser.displayName || '',
+          email: currentUser.email || '',
+          phoneNumber: '',
+          walletBalance: 0,
+          isVerified: false,
+          verificationStatus: 'pending',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        setProfile(defaultProfile);
+      }
+      setLoading(false);
       return { success: true };
     } catch (err: any) {
       console.error(err);
@@ -147,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = async () => {
     if (!user) return;
     try {
-      const profileRef = doc(db, 'users', user.uid);
+      const profileRef = doc(db, 'profile', user.uid);
       const docSnap = await getDoc(profileRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
@@ -165,6 +205,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error refreshing profile:', error);
+    }
+  };
+
+  // Update profile in Firestore
+  const updateProfile = async (profileData: Partial<Profile>) => {
+    if (!user) {
+      return { error: 'User not found' };
+    }
+    try {
+      const profileRef = doc(db, 'profile', user.uid);
+      await updateDoc(profileRef, profileData);
+      await refreshProfile();
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      return { error: error.message || 'Failed to update profile' };
     }
   };
 
@@ -215,7 +271,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     canSendMoney,
     canReceiveMoney,
     canDeposit,
-    refreshProfile,
+  refreshProfile,
+  updateProfile,
   };
 
   return (
